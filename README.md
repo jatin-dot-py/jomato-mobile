@@ -1,76 +1,41 @@
-<div align="center">
-  <img src="./jomato.jpg" alt="Jomato Logo" width="150" height="150">
-  
-  # Jomato
-  
-  **The Unofficial Zomato Client & Food Rescue Monitor**
-  
-  <p>
-    <a href="#-download">Download App</a> •
-    <a href="#-features">Features</a> •
-    <a href="#-how-to-install">Installation Guide</a>
-  </p>
+# Jomato
 
-  <a href="https://github.com/jatin-dot-py/jomato-mobile/releases">
-    <img src="https://img.shields.io/github/v/release/YOUR_USERNAME/YOUR_REPO_NAME?style=for-the-badge&color=e23744&label=LATEST%20RELEASE" alt="Latest Release">
-  </a>
-</div>
+The Unofficial Zomato Client – Providing Features Zomato Does Not Want You to Have or Know.
 
----
+[Download App](#how-to-install) • [Features](#features) • [Installation Guide](#how-to-install)
 
-## 🚀 About The Project
+[![Latest Release](https://img.shields.io/github/v/release/jatin-dot-py/jomato-mobile?style=for-the-badge&color=e23744&label=LATEST%20RELEASE)](https://github.com/jatin-dot-py/jomato-mobile/releases)
 
-**Jomato** is an unofficial, reverse-engineered client for Zomato. It is designed to provide utility features that power users need but the official app doesn't prioritize.
+## About The Project
 
-### 🍕 Key Feature: Instant Food Rescue Notifications
+Jomato is an unofficial, reverse-engineered client for Zomato. It delivers utility features that enhance user experience beyond the official app's offerings, focusing on capabilities not readily available or promoted.
 
-The "Food Rescue" initiative is great for saving money and preventing waste, but the deals vanish in seconds.
+### Features
 
-**Jomato solves this:**
-* **Real-time Monitoring:** Jomato listens for Food Rescue events in your area.
-* **Instant Alerts:** Get a notification the *second* a restaurant lists a rescue basket.
-* **Direct Access:** Tap the notification to jump straight to the deal (before it sells out).
+- **Instant Food Rescue Notifications**: Monitors Food Rescue events in real time within your area. Delivers immediate alerts upon listing of a rescue basket by a restaurant. Allows direct access to the deal via notification tap, ensuring timely acquisition before depletion.
 
----
+## How to Install
 
-## 📥 How to Install
+Jomato is an unofficial application not available on the Google Play Store, which may trigger security warnings during installation. This is expected behavior.
 
-Since Jomato is an unofficial tool and not on the Google Play Store, your phone will try to block the installation. **This is normal.**
+1. **Download the APK**:
+   - Navigate to the [Releases Page](https://github.com/jatin-dot-py/jomato-mobile/releases).
+   - Select and download the latest file, such as `Jomato-v1.0.apk`.
 
-1.  **Download the APK:**
-    * Go to the [**Releases Page**](../../releases).
-    * Download the latest file (e.g., `Jomato-v1.0.apk`).
+2. **Open the File**:
+   - Tap the downloaded file to begin installation.
 
-2.  **Open the File:**
-    * Tap the downloaded file to install.
+3. **Bypass Play Protect**:
+   - A warning may appear indicating "Unsafe App Blocked" or "Unknown Developer."
+   - Select "More Details" or the equivalent option.
+   - Proceed by choosing "Install Anyway."
 
-3.  **Bypass Play Protect:**
-    * You will likely see a scary pop-up saying **"Unsafe App Blocked"** or **"Unknown Developer"**.
-    * Click **"More Details"** (or the small arrow).
-    * Click **"Install Anyway"**.
+Note: This warning occurs due to the app's personal key signature and lack of Google review. The source code is publicly available in this repository for verification.
 
-> **Note:** This warning appears because the app is signed with a personal key and hasn't been reviewed by Google. The code is open source here for you to verify.
+## Disclaimer & Legal
 
----
+This project is intended for educational purposes only.
 
-## 🛠️ Tech Stack
-
-* **Android:** Native Android (Kotlin/Java)
-* **Network:** Retrofit / OkHttp for API interception
-* **Architecture:** Reverse-engineered Zomato Internal API
-
----
-
-## ⚠️ Disclaimer & Legal
-
-**This project is for Educational Purposes Only.**
-
-* This application is **not affiliated with, endorsed by, or connected to Zomato** in any way.
-* "Zomato" and the Zomato logo are trademarks of Zomato Ltd.
-* The use of this software is done at your own discretion and risk. The developer is not responsible for any bans or account restrictions imposed by the official service provider.
-
----
-
-<div align="center">
-  <sub>Built with ❤️ by [Your Name]</sub>
-</div>
+- This application is not affiliated with, endorsed by, or connected to Zomato in any manner.
+- "Zomato" and the Zomato logo are trademarks of Zomato Ltd.
+- Usage of this software is at your own discretion and risk. The developer assumes no responsibility for any account restrictions or bans imposed by the official service provider.
