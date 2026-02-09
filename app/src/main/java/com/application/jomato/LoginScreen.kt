@@ -34,11 +34,9 @@ import com.application.jomato.utils.FileLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.application.jomato.ui.theme.JomatoTheme
 
-val BrandColor = Color(0xFF6F304F)
-val BrandLightBg = Color(0xFFF3E5F5)
-val BrandBlack = Color(0xFF1C1C1C)
-val TextGray = Color(0xFF696969)
+
 
 @OptIn(ExperimentalAnimationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -54,13 +52,13 @@ fun LoginScreen(navController: NavController) {
     val context = LocalContext.current
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = JomatoTheme.Background,
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
                 Snackbar(
                     snackbarData = data,
-                    containerColor = BrandBlack,
-                    contentColor = Color.White,
+                    containerColor = JomatoTheme.BrandBlack,
+                    contentColor = JomatoTheme.Background,
                     shape = RoundedCornerShape(8.dp)
                 )
             }
@@ -74,7 +72,7 @@ fun LoginScreen(navController: NavController) {
                     .height(250.dp)
                     .background(
                         brush = Brush.verticalGradient(
-                            colors = listOf(BrandLightBg, Color.White)
+                            colors = listOf(JomatoTheme.BrandLight, Color.Transparent)
                         )
                     )
             )
@@ -103,37 +101,37 @@ fun LoginScreen(navController: NavController) {
                                     fontWeight = FontWeight.ExtraBold,
                                     fontStyle = FontStyle.Italic
                                 ),
-                                color = BrandColor,
+                                color = JomatoTheme.Brand,
                                 letterSpacing = (-1).sp
                             )
                             Text(
                                 "Unofficial API Client",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = TextGray,
+                                color = JomatoTheme.TextGray,
                                 fontWeight = FontWeight.Medium
                             )
                             Spacer(modifier = Modifier.height(24.dp))
                             Text(
                                 "Connect your Zomato account",
                                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                                color = BrandBlack
+                                color = JomatoTheme.BrandBlack
                             )
                         } else {
                             Text(
                                 "Verification",
                                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                color = BrandBlack
+                                color = JomatoTheme.BrandBlack
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     "Enter the OTP sent to ",
-                                    color = TextGray,
+                                    color = JomatoTheme.TextGray,
                                     fontSize = 14.sp
                                 )
                                 Text(
                                     "+91 $phoneNumber",
-                                    color = BrandBlack,
+                                    color = JomatoTheme.BrandBlack,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
@@ -141,7 +139,7 @@ fun LoginScreen(navController: NavController) {
                                     showOtpScreen = false
                                     otp = ""
                                 }, modifier = Modifier.size(24.dp)) {
-                                    Icon(Icons.Default.Edit, "Edit", tint = BrandColor, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.Edit, "Edit", tint = JomatoTheme.Brand, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -166,23 +164,25 @@ fun LoginScreen(navController: NavController) {
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedBorderColor = Color(0xFFE0E0E0),
-                                    focusedBorderColor = BrandColor,
-                                    cursorColor = BrandColor
+                                    unfocusedBorderColor = JomatoTheme.Divider,
+                                    focusedBorderColor = JomatoTheme.Brand,
+                                    cursorColor = JomatoTheme.Brand,
+                                    focusedTextColor = JomatoTheme.BrandBlack,
+                                    unfocusedTextColor = JomatoTheme.BrandBlack
                                 ),
                                 prefix = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("+91 ", fontWeight = FontWeight.SemiBold, color = BrandBlack)
+                                        Text("+91 ", fontWeight = FontWeight.SemiBold, color = JomatoTheme.BrandBlack)
                                         Box(
                                             modifier = Modifier
                                                 .height(20.dp)
                                                 .width(1.dp)
-                                                .background(Color.LightGray)
+                                                .background(JomatoTheme.TextGray)
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                     }
                                 },
-                                placeholder = { Text("Phone Number") },
+                                placeholder = { Text("Phone Number", color = JomatoTheme.TextGray) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                                 singleLine = true
                             )
@@ -192,7 +192,7 @@ fun LoginScreen(navController: NavController) {
                             Text(
                                 "Receive OTP via",
                                 style = MaterialTheme.typography.labelLarge,
-                                color = TextGray,
+                                color = JomatoTheme.TextGray,
                                 fontWeight = FontWeight.Medium
                             )
                             Spacer(modifier = Modifier.height(12.dp))
@@ -256,7 +256,7 @@ fun LoginScreen(navController: NavController) {
                             Text(
                                 "This is an unofficial client. Not affiliated with Zomato, Eternal ltd.",
                                 style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                                color = Color.Gray,
+                                color = JomatoTheme.TextGray,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
                             )
@@ -270,16 +270,17 @@ fun LoginScreen(navController: NavController) {
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedBorderColor = Color(0xFFE0E0E0),
-                                    focusedBorderColor = BrandColor,
-                                    cursorColor = BrandColor
+                                    unfocusedBorderColor = JomatoTheme.Divider,
+                                    focusedBorderColor = JomatoTheme.Brand,
+                                    focusedTextColor = JomatoTheme.BrandBlack,
+                                    unfocusedTextColor = JomatoTheme.BrandBlack
                                 ),
-                                placeholder = { Text("Enter 6-digit OTP") },
+                                placeholder = { Text("Enter 6-digit OTP", color = JomatoTheme.TextGray) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                                 singleLine = true,
                                 trailingIcon = {
                                     if(isLoading) {
-                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = BrandColor)
+                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = JomatoTheme.Brand)
                                     }
                                 }
                             )
@@ -334,11 +335,11 @@ fun LoginScreen(navController: NavController) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.White.copy(alpha = 0.6f))
+                        .background(Color.Transparent.copy(alpha = 0.6f))
                         .clickable(enabled = false) {},
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = BrandColor)
+                    CircularProgressIndicator(color = JomatoTheme.Brand)
                 }
             }
         }
@@ -357,10 +358,10 @@ fun JomatoButton(text: String, onClick: () -> Unit, enabled: Boolean) {
             .shadow(elevation = if (enabled) 4.dp else 0.dp, shape = RoundedCornerShape(12.dp)),
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = BrandColor,
-            disabledContainerColor = BrandColor.copy(alpha = 0.3f),
-            contentColor = Color.White,
-            disabledContentColor = Color.White
+            containerColor = JomatoTheme.Brand,
+            disabledContainerColor = JomatoTheme.Brand.copy(alpha = 0.3f),
+            contentColor = JomatoTheme.Background,
+            disabledContentColor = JomatoTheme.Background.copy(alpha = 0.5f)
         )
     ) {
         Text(
@@ -379,9 +380,9 @@ fun OtpMethodChip(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
-    val borderColor = if (selected) BrandColor else Color(0xFFE0E0E0)
-    val bgColor = if (selected) BrandLightBg else Color.White
-    val contentColor = if (selected) BrandColor else TextGray
+    val borderColor = if (selected) JomatoTheme.Brand else Color(0xFFE0E0E0)
+    val bgColor = if (selected) JomatoTheme.BrandLight else Color.Transparent
+    val contentColor = if (selected) JomatoTheme.Brand else JomatoTheme.TextGray
 
     Surface(
         onClick = onClick,

@@ -1,4 +1,4 @@
-package com.application.jomato
+package com.application.jomato.ui.rescue
 
 import com.application.jomato.api.TabbedHomeEssentials
 import com.application.jomato.api.UserLocation

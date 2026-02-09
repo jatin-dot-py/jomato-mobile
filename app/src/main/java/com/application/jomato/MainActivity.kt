@@ -15,9 +15,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.application.jomato.api.ApiClient
+import com.application.jomato.ui.dashboard.DashboardScreen
+import com.application.jomato.ui.rescue.FoodRescueScreen
 import com.application.jomato.utils.FileLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.application.jomato.ui.theme.JomatoTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,7 +47,6 @@ fun JomatoApp() {
         } else {
             FileLogger.log(context, "JomatoApp", "Token found. Validating session...")
 
-            // Updated to pass context for logging inside ApiClient
             val userInfo = withContext(Dispatchers.IO) { ApiClient.getUserInfo(context, token) }
 
             if (userInfo != null) {
@@ -69,7 +71,7 @@ fun JomatoApp() {
 
 @Composable
 fun SplashScreen() {
-    Box(modifier = Modifier.fillMaxSize().background(Color.White), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = BrandColor)
+    Box(modifier = Modifier.fillMaxSize().background(JomatoTheme.Background), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = JomatoTheme.Brand)
     }
 }

@@ -2,7 +2,7 @@ package com.application.jomato
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.application.jomato.FoodRescueState
+import com.application.jomato.ui.rescue.FoodRescueState
 import com.application.jomato.api.TabbedHomeEssentials
 import com.application.jomato.api.UserLocation
 import com.application.jomato.utils.FileLogger
