@@ -51,9 +51,19 @@ You have two options:
 
 > **Note:** These warnings occur because the app uses a personal key signature and hasn't been reviewed by Google Play. The source code is publicly available in this repository for verification and transparency.
 
+### Step 4: Login into your zomato account
+
+After opening the app you will see a login screen. Enter your phone number and verify it with OTP.
+
+<div align="center">
+<img src="screenshots/login.jpeg" alt="Home Screen" width="300"/>
+</div>
+
+
+
 ### Step 3: Open the App
 
-Once installation is complete, open Jomato. You'll see the home screen with the **Food Rescue widget** option.
+Once login is complete, open Jomato. You'll see the home screen with the **Food Rescue widget** option.
 
 <div align="center">
 <img src="screenshots/home_screen.jpeg" alt="Home Screen" width="300"/>
