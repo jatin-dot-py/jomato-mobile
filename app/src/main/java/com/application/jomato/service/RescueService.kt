@@ -58,7 +58,16 @@ class FoodRescueService : Service() {
 
         ensureDedupSystem()
 
-        startForeground(NOTIFICATION_ID, createForegroundNotification("Initializing..."))
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(
+                NOTIFICATION_ID,
+                createForegroundNotification("Initializing..."),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            // Older versions don't know what "dataSync" is in code
+            startForeground(NOTIFICATION_ID, createForegroundNotification("Initializing..."))
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
