@@ -37,6 +37,8 @@ class FoodRescueService : Service() {
 
     companion object {
         const val ACTION_STOP = "com.application.jomato.STOP_SERVICE"
+        const val ACTION_TEST = "com.application.jomato.TEST_NOTIFICATION"
+
         const val CHANNEL_ID_FOREGROUND = "jomato_service_channel"
         const val CHANNEL_ID_ALERTS = "jomato_alerts_channel_v2"
         const val NOTIFICATION_ID = 1001
@@ -76,6 +78,12 @@ class FoodRescueService : Service() {
             Prefs.stopFoodRescue(this)
             stopSelf()
             return START_NOT_STICKY
+        }
+
+        if (intent?.action == ACTION_TEST) {
+            FileLogger.log(this, "Service", "Manual Test Triggered")
+            sendAlertNotification()
+            return START_STICKY
         }
 
         Prefs.setMqttConnectionStatus(false)
