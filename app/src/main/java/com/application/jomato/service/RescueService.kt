@@ -38,7 +38,7 @@ class FoodRescueService : Service() {
     companion object {
         const val ACTION_STOP = "com.application.jomato.STOP_SERVICE"
         const val CHANNEL_ID_FOREGROUND = "jomato_service_channel"
-        const val CHANNEL_ID_ALERTS = "jomato_alerts_channel"
+        const val CHANNEL_ID_ALERTS = "jomato_alerts_channel_v2"
         const val NOTIFICATION_ID = 1001
         const val TARGET_PACKAGE = "com.application.zomato"
         const val NOTIFICATION_COOLDOWN_MS = 180_000L
@@ -68,6 +68,15 @@ class FoodRescueService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+
+        Prefs.setMqttConnectionStatus(false)
+
+//        serviceScope.launch {
+//            delay(10000) // Wait 10 seconds
+//            FileLogger.log(this@FoodRescueService, "Test", "Firing Test Notification...")
+//            sendAlertNotification()
+//        }
+
 
         if (!isRunning) {
             isRunning = true
@@ -194,6 +203,8 @@ class FoodRescueService : Service() {
 
             mqttClient?.setCallback(object : MqttCallback {
                 override fun connectionLost(cause: Throwable?) {
+                    Prefs.setMqttConnectionStatus(false)
+
                     val reason = cause?.message ?: "Unknown"
                     FileLogger.log(this@FoodRescueService, "MQTT", "Connection lost: $reason")
                     Prefs.incrementReconnCount(this@FoodRescueService)
@@ -210,7 +221,7 @@ class FoodRescueService : Service() {
                 userName = config.client.username
                 password = config.client.password.toCharArray()
                 isCleanSession = true
-                keepAliveInterval = config.client.keepalive
+                keepAliveInterval = 30 // config.client.keepalive
                 isAutomaticReconnect = true
                 connectionTimeout = 30
                 socketFactory = getUnsafeSocketFactory()
@@ -218,6 +229,11 @@ class FoodRescueService : Service() {
 
             FileLogger.log(this, "MQTT", "Connecting to broker...")
             mqttClient?.connect(connOpts)
+
+            if (mqttClient?.isConnected == true) {
+                Prefs.setMqttConnectionStatus(true)
+            }
+
             FileLogger.log(this, "MQTT", "Connected. Subscribing...")
             mqttClient?.subscribe(config.channelName, config.qos)
             FileLogger.log(this, "MQTT", "Subscribed!")
@@ -298,16 +314,9 @@ class FoodRescueService : Service() {
     }
 
     private fun sendAlertNotification() {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-            val serviceChannel = NotificationChannel(
-                CHANNEL_ID_FOREGROUND,
-                "Background Service",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            manager.createNotificationChannel(serviceChannel)
-
             val alertChannel = NotificationChannel(
                 CHANNEL_ID_ALERTS,
                 "Food Rescue Alerts",
@@ -316,20 +325,30 @@ class FoodRescueService : Service() {
                 enableVibration(true)
                 enableLights(true)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                description = "Notifications for fresh food rescue opportunities"
             }
-            manager.createNotificationChannel(alertChannel)
+            notificationManager.createNotificationChannel(alertChannel)
         }
 
-        val launchIntent = packageManager.getLaunchIntentForPackage(TARGET_PACKAGE)
-        val finalIntent = launchIntent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            ?: Intent(this, MainActivity::class.java)
+        var launchIntent = packageManager.getLaunchIntentForPackage("com.application.zomato")
 
-        val pendingIntent = PendingIntent.getActivity(this, 0, finalIntent, PendingIntent.FLAG_IMMUTABLE)
+        if (launchIntent == null) {
+            launchIntent = Intent(this, MainActivity::class.java)
+        }
+
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            launchIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID_ALERTS)
             .setSmallIcon(R.drawable.ic_notification_jomato)
             .setContentTitle("Food Rescue Alert!")
-            .setContentText("Order Cancelled Nearby - Open Zomato App Now!")
+            .setContentText("Click to open Zomato")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
@@ -338,7 +357,6 @@ class FoodRescueService : Service() {
             .setAutoCancel(true)
             .build()
 
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 
@@ -395,6 +413,8 @@ class FoodRescueService : Service() {
         try {
             if (wakeLock?.isHeld == true) wakeLock?.release()
         } catch (e: Exception) {}
+
+        Prefs.setMqttConnectionStatus(true)
         super.onDestroy()
     }
 

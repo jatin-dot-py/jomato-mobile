@@ -6,6 +6,8 @@ import com.application.jomato.ui.rescue.FoodRescueState
 import com.application.jomato.api.TabbedHomeEssentials
 import com.application.jomato.api.UserLocation
 import com.application.jomato.utils.FileLogger
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -27,6 +29,7 @@ object Prefs {
     private const val KEY_FR_RECONN_COUNT = "fr_reconn_count"
 
     private const val KEY_FR_LAST_NOTIFICATION_AT = "fr_last_notification_at"
+
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -169,4 +172,12 @@ object Prefs {
         FileLogger.log(context, TAG, "Retrieved last notification | Timestamp: $timestamp")
         return timestamp
     }
+
+    private val _mqttStatus = MutableStateFlow(false)
+    val mqttStatus = _mqttStatus.asStateFlow()
+
+    fun setMqttConnectionStatus(isConnected: Boolean) {
+        _mqttStatus.value = isConnected
+    }
+
 }

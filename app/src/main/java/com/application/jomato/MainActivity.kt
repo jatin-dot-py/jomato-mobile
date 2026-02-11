@@ -1,6 +1,7 @@
 package com.application.jomato
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -9,7 +10,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -54,9 +54,15 @@ fun JomatoApp() {
                 Prefs.saveTokenAndUser(context, token, refreshToken, userInfo.name, userInfo.id.toString())
                 navController.navigate("dashboard") { popUpTo("splash") { inclusive = true } }
             } else {
-                FileLogger.log(context, "JomatoApp", "Session Invalid/Expired. Clearing data.")
-                Prefs.clear(context)
-                navController.navigate("login") { popUpTo("splash") { inclusive = true } }
+                FileLogger.log(context, "JomatoApp", "Session validation failed. Keeping user logged in but showing warning.")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        context,
+                        "Something wrong with connection or session. If the issue persists clear application data",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                navController.navigate("dashboard") { popUpTo("splash") { inclusive = true } }
             }
         }
     }

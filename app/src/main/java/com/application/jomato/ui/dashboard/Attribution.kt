@@ -9,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -19,12 +18,12 @@ import com.application.jomato.R
 import com.application.jomato.ui.theme.JomatoTheme
 import com.application.jomato.utils.FileLogger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.ResponseBody
 import org.json.JSONObject
 import retrofit2.Retrofit
 import retrofit2.http.GET
-
 
 interface GitHubApi {
     @GET("repos/jatin-dot-py/jomato-mobile/releases/latest")
@@ -37,6 +36,15 @@ fun GitHubPill() {
     var updateAvailable by remember { mutableStateOf(false) }
     var apkUrl by remember { mutableStateOf("") }
     var newVersion by remember { mutableStateOf("") }
+
+    var showAltText by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(5000)
+            showAltText = !showAltText
+        }
+    }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -94,12 +102,20 @@ fun GitHubPill() {
                 modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(10.dp))
+
+            val textToShow = if (updateAvailable) {
+                "Update Available ($newVersion)"
+            } else {
+                if (showAltText) "Star us on GitHub" else "jatin-dot-py/jomato-mobile"
+            }
+
             Text(
-                text = if (updateAvailable) "Update Available ($newVersion)" else "jatin-dot-py/jomato-mobile",
+                text = textToShow,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color =  JomatoTheme.BrandBlack
             )
+
             if (updateAvailable) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Surface(

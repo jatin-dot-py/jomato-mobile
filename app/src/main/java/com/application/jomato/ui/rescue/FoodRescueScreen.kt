@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.application.jomato.ui.theme.JomatoTheme
 
+
 @Composable
 
 fun FoodRescueScreen(navController: NavController) {
@@ -47,7 +48,10 @@ fun FoodRescueScreen(navController: NavController) {
     var essentials by remember { mutableStateOf<TabbedHomeEssentials?>(null) }
     var isLoadingLocations by remember { mutableStateOf(false) }
 
+
     var showBatteryDialog by remember { mutableStateOf(false) }
+
+    val isConnected: Boolean by Prefs.mqttStatus.collectAsState(initial = false)
 
     fun refreshActiveState() {
         val freshState = Prefs.getFoodRescueState(context)
@@ -177,7 +181,15 @@ fun FoodRescueScreen(navController: NavController) {
                     )
                 }
             }
+        },
+        bottomBar = {
+            ConnectionStatusStrip(
+                isConnected = isConnected,
+                isServiceRunning = activeState != null
+            )
         }
+
+
     ) { padding ->
         val isMonitoring = activeState != null
 
