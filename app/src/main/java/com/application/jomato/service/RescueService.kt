@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
+import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import com.application.jomato.MainActivity
 import com.application.jomato.Prefs
@@ -58,7 +59,15 @@ class FoodRescueService : Service() {
 
         ensureDedupSystem()
 
-        startForeground(NOTIFICATION_ID, createForegroundNotification("Initializing..."))
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(
+                NOTIFICATION_ID,
+                createForegroundNotification("Initializing..."),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, createForegroundNotification("Initializing..."))
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
