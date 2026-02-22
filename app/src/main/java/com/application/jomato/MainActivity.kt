@@ -17,8 +17,11 @@ import androidx.navigation.compose.rememberNavController
 import com.application.jomato.api.ApiClient
 import com.application.jomato.ui.dashboard.DashboardScreen
 import com.application.jomato.ui.rescue.FoodRescueScreen
+import com.application.jomato.utils.AnalyticsManager
 import com.application.jomato.utils.FileLogger
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.application.jomato.ui.theme.JomatoTheme
 
@@ -26,6 +29,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FileLogger.log(this, "MainActivity", "Application Launched (onCreate)")
+        CoroutineScope(Dispatchers.IO).launch { AnalyticsManager.pingAppOpen(this@MainActivity) }
         setContent { JomatoApp() }
     }
 }

@@ -30,6 +30,7 @@ object Prefs {
 
     private const val KEY_FR_LAST_NOTIFICATION_AT = "fr_last_notification_at"
 
+    private const val KEY_INSTALL_ID = "install_id"
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -178,6 +179,20 @@ object Prefs {
 
     fun setMqttConnectionStatus(isConnected: Boolean) {
         _mqttStatus.value = isConnected
+    }
+
+
+    fun getInstallId(context: Context): String {
+        val prefs = getPrefs(context)
+        var installId = prefs.getString(KEY_INSTALL_ID, null)
+        if (installId == null) {
+            val bytes = ByteArray(8)
+            java.security.SecureRandom().nextBytes(bytes)
+            installId = bytes.joinToString("") { "%02x".format(it) }
+            prefs.edit().putString(KEY_INSTALL_ID, installId).apply()
+            FileLogger.log(context, TAG, "Generated new install ID: $installId")
+        }
+        return installId!!
     }
 
 }
