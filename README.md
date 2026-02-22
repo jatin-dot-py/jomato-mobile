@@ -115,4 +115,24 @@ This project is intended for **educational purposes only**.
 
 ---
 
+## Analytics & Privacy
+
+Jomato collects minimal anonymous analytics to understand how many people are using the app and which versions are actively in use.
+
+**What is collected on every app open:**
+- A randomly generated install ID (16 character hex string, generated on first launch)
+- App version name and version code
+- Android version
+
+**What is NOT collected:**
+- No personal information whatsoever
+- No location
+- No usage patterns beyond app open
+- The install ID cannot be traced back to you
+
+**All user data is saved locally. Jomato does not have any backend.**
+
+Analytical data is stored on Cloudflare D1 and is used solely to display aggregate stats (total installs, active users, version distribution). The install ID resets on app reinstall.
+
+
 </div>
