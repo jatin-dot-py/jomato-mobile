@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -22,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.application.jomato.Prefs
 import com.application.jomato.auth.AuthClient
+import com.application.jomato.ui.dashboard.bottom.GitHubPill
 import com.application.jomato.utils.FileLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

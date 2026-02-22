@@ -1,0 +1,11 @@
+{
+  "tag_name": "v1.0.3",
+  "assets": [
+    {
+      "browser_download_url": "https://github.com/jatin-dot-py/jomato-mobile/releases/download/v1.0.3/Jomato-v1.0.3.apk",
+      "digest": "sha256:3c8e1f6fcff9f8c7e61fe223fa2c1451b2e4a5f3a72796b48a50350ec1af97a3",
+      "name": "Jomato-v1.0.3.apk"
+    }
+  ],
+  "body": "Full Changelog: ..."
+}

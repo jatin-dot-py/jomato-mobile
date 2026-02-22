@@ -12,12 +12,18 @@ android {
         applicationId "com.application.jomato"
         minSdk 26
         targetSdk 34
-        versionCode 4
-        versionName "v1.0.3"
+        versionCode 5
+        versionName "v1.0.4"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary true
         }
+
+        def localProps = new Properties()
+        localProps.load(new FileInputStream(rootProject.file("local.properties")))
+        buildConfigField "String", "WORKER_URL", "\"${localProps['WORKER_URL']}\""
+        buildConfigField "String", "FALLBACK_UPDATE_URL", "\"${localProps['FALLBACK_UPDATE_URL']}\""
+
     }
 
     buildTypes {
@@ -38,6 +44,7 @@ android {
 
     buildFeatures {
         compose true
+        buildConfig true
     }
 
     composeOptions {
