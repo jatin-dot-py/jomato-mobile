@@ -9,6 +9,11 @@
 
 </div>
 
+> [!CAUTION]
+> **Only download Jomato from the official GitHub releases page.**
+> There is no other official source — no Telegram groups, no third party websites, no WhatsApp links.
+> If you downloaded from anywhere else, delete it immediately.
+
 ---
 
 ## About The Project
