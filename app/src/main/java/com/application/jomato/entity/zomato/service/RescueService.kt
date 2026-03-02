@@ -18,11 +18,6 @@ import kotlinx.serialization.json.*
 import org.eclipse.paho.client.mqttv3.*
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
 import java.io.File
-import java.security.SecureRandom
-import java.security.cert.X509Certificate
-import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 
 class FoodRescueService : Service() {
 
@@ -259,7 +254,6 @@ class FoodRescueService : Service() {
                keepAliveInterval = 30
                isAutomaticReconnect = false
                connectionTimeout = 30
-               socketFactory = getUnsafeSocketFactory()
            }
 
             FileLogger.log(this, "MQTT", "Connecting to broker...")
@@ -459,17 +453,6 @@ class FoodRescueService : Service() {
             val serviceChannel = NotificationChannel(CHANNEL_ID_FOREGROUND, "Background Service", NotificationManager.IMPORTANCE_LOW)
             manager.createNotificationChannel(serviceChannel)
         }
-    }
-
-    private fun getUnsafeSocketFactory(): javax.net.SocketFactory {
-        val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
-            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
-            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
-            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-        })
-        val sslContext = SSLContext.getInstance("SSL")
-        sslContext.init(null, trustAllCerts, SecureRandom())
-        return sslContext.socketFactory
     }
 
     override fun onDestroy() {
