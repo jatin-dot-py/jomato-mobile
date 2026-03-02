@@ -14,22 +14,28 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.application.jomato.api.ApiClient
+import com.application.jomato.config.IntegrityResult
+import com.application.jomato.ui.IntegrityDialog
+import com.application.jomato.config.UiConfigManager
+import com.application.jomato.sessions.Entity
+import com.application.jomato.sessions.SessionMigration
+import com.application.jomato.ui.EntityFaqRoute
+import com.application.jomato.ui.EntityScreen
+import com.application.jomato.ui.FeatureFaqRoute
+import com.application.jomato.ui.FeatureScreen
 import com.application.jomato.ui.dashboard.DashboardScreen
-import com.application.jomato.ui.rescue.FoodRescueScreen
+import com.application.jomato.ui.PrivacyFaqScreen
+import com.application.jomato.ui.theme.JomatoTheme
 import com.application.jomato.utils.AnalyticsManager
 import com.application.jomato.utils.FileLogger
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.application.jomato.ui.theme.JomatoTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FileLogger.log(this, "MainActivity", "Application Launched (onCreate)")
-        CoroutineScope(Dispatchers.IO).launch { AnalyticsManager.pingAppOpen(this@MainActivity) }
         setContent { JomatoApp() }
     }
 }
@@ -38,50 +44,114 @@ class MainActivity : ComponentActivity() {
 fun JomatoApp() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var integrityResult by remember { mutableStateOf<IntegrityResult?>(null) }
+    var showIntegrityDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        FileLogger.log(context, "JomatoApp", "Starting Session Check...")
+        Prefs.loadThemeMode(context)
 
-        val token = withContext(Dispatchers.IO) { Prefs.getToken(context) }
-        val refreshToken = withContext(Dispatchers.IO) { Prefs.getRefreshToken(context) ?: "" }
+        withContext(Dispatchers.IO) {
+            UiConfigManager.fetch(context)
+        }
 
-        if (token == null) {
-            FileLogger.log(context, "JomatoApp", "No token found. Navigating to Login.")
-            navController.navigate("login") { popUpTo("splash") { inclusive = true } }
-        } else {
-            FileLogger.log(context, "JomatoApp", "Token found. Validating session...")
+        withContext(Dispatchers.IO) {
+            integrityResult = UiConfigManager.checkIntegrity(context)
+        }
 
-            val userInfo = withContext(Dispatchers.IO) { ApiClient.getUserInfo(context, token) }
+        if (integrityResult is IntegrityResult.Fail) {
+            val fail = integrityResult as IntegrityResult.Fail
+            showIntegrityDialog = fail.strict || !Prefs.getHideIntegrity(context)
+            if (fail.strict) return@LaunchedEffect
+        }
 
-            if (userInfo != null) {
-                FileLogger.log(context, "JomatoApp", "Session Valid. Welcome, ${userInfo.name}.")
-                Prefs.saveTokenAndUser(context, token, refreshToken, userInfo.name, userInfo.id.toString())
-                navController.navigate("dashboard") { popUpTo("splash") { inclusive = true } }
-            } else {
-                FileLogger.log(context, "JomatoApp", "Session validation failed. Keeping user logged in but showing warning.")
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        context,
-                        "Something wrong with connection or session. If the issue persists clear application data",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-                navController.navigate("dashboard") { popUpTo("splash") { inclusive = true } }
+        scope.launch(Dispatchers.IO) {
+            AnalyticsManager.pingAppOpen(context)
+        }
+
+        val migrated = withContext(Dispatchers.IO) {
+            SessionMigration.runIfNeeded(context)
+        }
+
+        if (migrated) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    "Your session has been reset. Please log in again.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
+
+        navController.navigate("dashboard") {
+            popUpTo("splash") { inclusive = true }
+        }
+    }
+
+    if (showIntegrityDialog && integrityResult is IntegrityResult.Fail) {
+        val fail = integrityResult as IntegrityResult.Fail
+        IntegrityDialog(
+            message = fail.message,
+            strict = fail.strict,
+            onDismiss = { showIntegrityDialog = false }
+        )
     }
 
     NavHost(navController = navController, startDestination = "splash") {
         composable("splash") { SplashScreen() }
-        composable("login") { LoginScreen(navController) }
         composable("dashboard") { DashboardScreen(navController) }
-        composable("food_rescue") { FoodRescueScreen(navController) }
+        composable("privacy_faqs") { PrivacyFaqScreen(navController) }
+
+        Entity.entries.forEach { entity ->
+            composable(entity.loginHandler.route) {
+                entity.loginHandler.LoginScreen(navController)
+            }
+        }
+
+        composable("feature/{featureId}/{sessionId}") { backStackEntry ->
+            FeatureScreen(
+                featureId = backStackEntry.arguments?.getString("featureId")!!,
+                sessionId = backStackEntry.arguments?.getString("sessionId")!!,
+                navController = navController
+            )
+        }
+        composable("feature/{featureId}") { backStackEntry ->
+            FeatureScreen(
+                featureId = backStackEntry.arguments?.getString("featureId")!!,
+                sessionId = null,
+                navController = navController
+            )
+        }
+        composable("feature/{featureId}/faq") { backStackEntry ->
+            FeatureFaqRoute(
+                featureId = backStackEntry.arguments?.getString("featureId")!!,
+                navController = navController
+            )
+        }
+        composable("entity/{entityId}") { backStackEntry ->
+            EntityScreen(
+                entityId = backStackEntry.arguments?.getString("entityId")!!,
+                navController = navController
+            )
+        }
+        composable("entity/{entityId}/faq") { backStackEntry ->
+            EntityFaqRoute(
+                entityId = backStackEntry.arguments?.getString("entityId")!!,
+                navController = navController
+            )
+        }
     }
 }
 
 @Composable
 fun SplashScreen() {
-    Box(modifier = Modifier.fillMaxSize().background(JomatoTheme.Background), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(JomatoTheme.Background),
+        contentAlignment = Alignment.Center
+    ) {
         CircularProgressIndicator(color = JomatoTheme.Brand)
     }
 }

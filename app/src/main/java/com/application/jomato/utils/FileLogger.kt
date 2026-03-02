@@ -11,6 +11,13 @@ import java.util.Locale
 
 object FileLogger {
     private const val FILE_NAME = "jomato_daemon.log"
+
+    /** Max size before trimming (2 MB). */
+    private const val MAX_LOG_FILE_BYTES = 2L * 1024 * 1024
+
+    /** When trimming, keep this many bytes from the end (1 MB). */
+    private const val TRIM_KEEP_BYTES = 1024 * 1024
+
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
     private val TOKEN_PATTERN = Regex("(?i)(token|key|auth)=([\\w\\-.]+)?")
     private val PHONE_PATTERN = Regex("\\b\\d{10}\\b")
@@ -25,6 +32,7 @@ object FileLogger {
         }
         try {
             val file = File(context.filesDir, FILE_NAME)
+            trimLogFileIfNeeded(file)
             val timestamp = dateFormat.format(Date())
             val cleanMessage = sanitize(message)
             val cleanError = error?.let { "\nStacktrace: ${it.stackTraceToString()}" } ?: ""
@@ -47,6 +55,35 @@ object FileLogger {
             "$key=...[REDACTED]..."
         }
         return output
+    }
+
+    /**
+     * If the log file is at or over [MAX_LOG_FILE_BYTES], trim it to the last [TRIM_KEEP_BYTES],
+     * keeping content only from a line boundary so no partial line is left at the top.
+     * Called from [log] immediately before appending, so the file is capped without extra background work.
+     */
+    private fun trimLogFileIfNeeded(file: File) {
+        if (!file.exists() || file.length() < MAX_LOG_FILE_BYTES) return
+        val contentToKeep = try {
+            RandomAccessFile(file, "r").use { raf ->
+                val len = raf.length()
+                val toRead = minOf(TRIM_KEEP_BYTES.toLong(), len).toInt()
+                raf.seek(len - toRead)
+                val bytes = ByteArray(toRead)
+                raf.readFully(bytes)
+                val content = String(bytes, Charsets.UTF_8)
+                val firstNewline = content.indexOf('\n')
+                if (firstNewline >= 0) content.substring(firstNewline + 1) else content
+            }
+        } catch (e: Exception) {
+            Log.e("FileLogger", "Trim read failed: ${e.message}", e)
+            return
+        }
+        try {
+            FileWriter(file, false).use { it.write(contentToKeep) }
+        } catch (e: Exception) {
+            Log.e("FileLogger", "Trim write failed: ${e.message}", e)
+        }
     }
 
     fun getLogs(context: Context): String {

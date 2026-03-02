@@ -19,6 +19,11 @@ object AnalyticsManager {
 
 
     suspend fun pingAppOpen(context: Context) {
+        if (BuildConfig.IS_DEV) {
+            FileLogger.log(context, "AnalyticsManager", "Dev mode — skipping pingAppOpen")
+            return
+        }
+
         withContext(Dispatchers.IO) {
             try {
                 val installId = Prefs.getInstallId(context)
@@ -45,4 +50,37 @@ object AnalyticsManager {
             }
         }
     }
+
+
+    suspend fun pingFoodRescue(
+        context: Context,
+        orderId: String,
+        totalCart: Double,
+        totalPaid: Double
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val installId = Prefs.getInstallId(context)
+
+                val payload = JSONObject().apply {
+                    put("order_id", orderId)
+                    put("install_id", installId)
+                    put("total_cart", totalCart)
+                    put("total_paid", totalPaid)
+                }
+
+                val request = Request.Builder()
+                    .url(BuildConfig.FOOD_RESCUE_METRICS_URL)
+                    .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
+
+                val response = client.newCall(request).execute()
+                FileLogger.log(context, "AnalyticsManager", "pingFoodRescue response: ${response.code} | order: $orderId")
+                response.close()
+            } catch (e: Exception) {
+                FileLogger.log(context, "AnalyticsManager", "pingFoodRescue failed: ${e.message}", e)
+            }
+        }
+    }
+
 }
