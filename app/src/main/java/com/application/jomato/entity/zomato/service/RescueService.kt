@@ -68,7 +68,7 @@ class FoodRescueService : Service() {
 
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Jomato:ReliabilityLock")
-        wakeLock?.acquire()
+        wakeLock?.acquire(10 * 60 * 1000L)
         FileLogger.log(this, "Service", "WakeLock acquired")
 
         createNotificationChannels()
