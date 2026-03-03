@@ -12,9 +12,8 @@ import java.net.HttpCookie
 import java.net.URI
 import java.security.MessageDigest
 import java.security.SecureRandom
-import java.util.UUID
 import java.util.concurrent.TimeUnit
-import kotlin.random.Random
+import com.application.jomato.entity.zomato.api.ApiBase
 
 object AuthClient {
     private const val TAG = "AuthClient"
@@ -35,55 +34,7 @@ object AuthClient {
 
     data class AuthResult(val accessToken: String, val refreshToken: String)
 
-    private val commonHeaders = Headers.Builder()
-        .add("Accept", "image/webp")
-        .add("Accept-Encoding", "br, gzip")
-        .add("Connection", "Keep-Alive")
-        .add("Host", "accounts.zomato.com")
-        .add("User-Agent", "&source=android_market&version=10&device_manufacturer=Google&device_brand=google&device_model=Android+SDK+built+for+x86_64&api_version=931&app_version=v19.3.1")
-        .add("X-Android-Id", "29435aa6a6755a97")
-        .add("X-Zomato-API-Key", "7749b19667964b87a3efc739e254ada2")
-        .add("X-Zomato-App-Version", "931")
-        .add("X-Zomato-App-Version-Code", "1710019310")
-        .add("X-Zomato-Client-Id", "5276d7f1-910b-4243-92ea-d27e758ad02b")
-        .add("X-Zomato-UUID", "b2691abb-5aac-48a5-9f0e-750349080dcb")
-        .add("is-akamai-video-optimisation-enabled", "0")
-        .add("pragma", "akamai-x-get-request-id,akamai-x-cache-on, akamai-x-check-cacheable")
-        .add("USER-BUCKET", "0")
-        .add("USER-HIGH-PRIORITY", "0")
-        .add("X-Access-UUID", "71783d00-13fc-4e81-9ba6-9428f2c6c75c")
-        .add("X-Accessibility-Dynamic-Text-Scale-Factor", "1.0")
-        .add("X-Accessibility-Voice-Over-Enabled", "0")
-        .add("X-APP-APPEARANCE", "LIGHT")
-        .add("X-App-Language", "&lang=en&android_language=en&android_country=")
-        .add("X-App-Session-Id", "b287175a-035e-4346-b8fb-0b19c4892cea")
-        .add("X-APP-THEME", "default")
-        .add("X-Appsflyer-UID", "1770210645057-4891034784193940182")
-        .add("X-BLINKIT-INSTALLED", "false")
-        .add("X-Bluetooth-On", "false")
-        .add("X-City-Id", "-1")
-        .add("X-Client-Id", "zomato_android_v2")
-        .add("X-Device-Height", "2208")
-        .add("X-Device-Language", "en")
-        .add("X-Device-Pixel-Ratio", "2.75")
-        .add("X-Device-Width", "1080")
-        .add("X-DISTRICT-INSTALLED", "false")
-        .add("X-FIREBASE-INSTANCE-ID", "3bc79ef61af45c349bef251f2de8d858")
-        .add("X-Installer-Package-Name", "cm.aptoide.pt")
-        .add("X-Jumbo-Session-Id", "e26bfcdb-8b7f-462d-a388-d49f6652c0e71770231893")
-        .add("X-Network-Type", "mobile_UNKNOWN")
-        .add("X-O2-City-Id", "-1")
-        .add("x-perf-class", "PERFORMANCE_AVERAGE")
-        .add("X-Present-Horizontal-Accuracy", "-1")
-        .add("X-Present-Lat", "0.0")
-        .add("X-Present-Long", "0.0")
-        .add("X-Request-Id", generateRandomUUID())
-        .add("X-RIDER-INSTALLED", "false")
-        .add("X-SYSTEM-APPEARANCE", "UNSPECIFIED")
-        .add("X-User-Defined-Lat", "0.0")
-        .add("X-User-Defined-Long", "0.0")
-        .add("X-VPN-Active", "1")
-        .build()
+    private val commonHeaders: Headers = ApiBase.commonHeaders
 
     fun preOtpFlow(context: Context, phone: String, otpPref: String): Boolean {
         try {
@@ -414,12 +365,8 @@ object AuthClient {
     private fun generateStateString(length: Int = 32): String {
         val alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         return (1..length)
-            .map { Random.nextInt(0, alphabet.length) }
+            .map { kotlin.random.Random.nextInt(0, alphabet.length) }
             .map(alphabet::get)
             .joinToString("")
-    }
-
-    private fun generateRandomUUID(): String {
-        return UUID.randomUUID().toString()
     }
 }
