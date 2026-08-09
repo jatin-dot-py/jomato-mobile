@@ -54,12 +54,22 @@ fun RescueActiveView(
     val claimedOrders = remember { ZomatoManager.getFrClaimedOrders(context) }
     val totalSaved = remember { ZomatoManager.getFrTotalSaved(context) }
     val hasClaims = claimedOrders.isNotEmpty()
+    var ringEnabled by remember { mutableStateOf(ZomatoManager.isRingOnAlertEnabled(context)) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
+        RingToggleRow(
+            enabled = ringEnabled,
+            onToggle = { checked ->
+                ringEnabled = checked
+                ZomatoManager.setRingOnAlertEnabled(context, checked)
+            }
+        )
+        Spacer(modifier = Modifier.height(if (hasClaims) 12.dp else 20.dp))
+
         if (hasClaims) {
             MonitoringHeader(
                 address = state.location.fullAddress,
@@ -90,6 +100,49 @@ fun RescueActiveView(
     }
 }
 
+
+// ── Ring toggle ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun RingToggleRow(enabled: Boolean, onToggle: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(JomatoTheme.Brand.copy(alpha = 0.06f))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.NotificationsActive,
+            contentDescription = null,
+            tint = JomatoTheme.Brand,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Ring on alert",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = JomatoTheme.BrandBlack
+            )
+            Text(
+                text = "Rings loudly for up to 30s, even on silent",
+                fontSize = 11.sp,
+                color = JomatoTheme.TextGray
+            )
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = JomatoTheme.Background,
+                checkedTrackColor = JomatoTheme.Brand
+            )
+        )
+    }
+}
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
