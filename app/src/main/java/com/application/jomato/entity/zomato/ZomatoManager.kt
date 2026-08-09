@@ -177,6 +177,15 @@ object ZomatoManager : BaseSessionManager<ZomatoSession>() {
         }
     }
 
+    fun isRingOnAlertEnabled(context: Context): Boolean {
+        return prefs(context).getBoolean(frKey("fr_ring_enabled"), true)
+    }
+
+    fun setRingOnAlertEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(frKey("fr_ring_enabled"), enabled).apply()
+        FileLogger.log(context, TAG, "Ring on alert set to: $enabled")
+    }
+
     fun clearClaimedOrders(context: Context) {
         val keyPrefix = frKey("fr_order_claimed_")
         val keysToRemove = prefs(context).all.keys.filter { it.startsWith(keyPrefix) }

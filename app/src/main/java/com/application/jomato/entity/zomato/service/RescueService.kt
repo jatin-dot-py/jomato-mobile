@@ -34,6 +34,11 @@ class FoodRescueService : Service() {
     companion object {
         const val ACTION_STOP = "com.application.jomato.STOP_SERVICE"
         const val ACTION_TEST = "com.application.jomato.TEST_NOTIFICATION"
+        const val ACTION_STOP_RING = "com.application.jomato.STOP_RING"
+
+        // Safety cap on how long the alert rings if no order_claimed event ever arrives
+        // to signal the rescue window has closed.
+        const val RING_MAX_DURATION_MS = 30_000L
 
         const val CHANNEL_ID_FOREGROUND = "jomato_service_channel"
         const val CHANNEL_ID_ALERTS = "jomato_alerts_channel_v2"
@@ -91,7 +96,13 @@ class FoodRescueService : Service() {
 
         if (intent?.action == ACTION_TEST) {
             FileLogger.log(this, "Service", "Manual Test Triggered")
-            sendAlertNotification()
+            triggerAlert()
+            return START_STICKY
+        }
+
+        if (intent?.action == ACTION_STOP_RING) {
+            FileLogger.log(this, "Service", "Stop Ring Requested")
+            RescueRinger.stop(this)
             return START_STICKY
         }
 
@@ -327,7 +338,7 @@ class FoodRescueService : Service() {
 
         if (timeSinceLast >= NOTIFICATION_COOLDOWN_MS) {
             FileLogger.log(this, "Logic", "Cooldown expired ($timeSinceLast > $NOTIFICATION_COOLDOWN_MS). Sending Notification.")
-            sendAlertNotification()
+            triggerAlert()
             ZomatoManager.saveLastNotification(this, now)
         } else {
             val remaining = (NOTIFICATION_COOLDOWN_MS - timeSinceLast) / 1000
@@ -336,6 +347,10 @@ class FoodRescueService : Service() {
     }
 
     private suspend fun handleOrderClaimed(root: JsonObject) {
+        // Any order_claimed event means this rescue window has resolved (claimed by us or
+        // someone else) — stop ringing regardless of which order triggered the original alert.
+        RescueRinger.stop(this)
+
         val identifier = root["data"]?.jsonObject
             ?.get("success_actions")?.jsonArray
             ?.firstOrNull()?.jsonObject
@@ -377,6 +392,13 @@ class FoodRescueService : Service() {
         }
     }
 
+    private fun triggerAlert() {
+        sendAlertNotification()
+        if (ZomatoManager.isRingOnAlertEnabled(this)) {
+            RescueRinger.start(applicationContext, serviceScope, RING_MAX_DURATION_MS)
+        }
+    }
+
     private fun sendAlertNotification() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -409,6 +431,11 @@ class FoodRescueService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val stopRingIntent = Intent(this, FoodRescueService::class.java).apply { action = ACTION_STOP_RING }
+        val stopRingPending = PendingIntent.getService(
+            this, 1, stopRingIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         val notification = NotificationCompat.Builder(this, CHANNEL_ID_ALERTS)
             .setSmallIcon(R.drawable.ic_notification_jomato)
             .setContentTitle("Food Rescue Alert!")
@@ -418,6 +445,7 @@ class FoodRescueService : Service() {
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setFullScreenIntent(pendingIntent, true)
             .setContentIntent(pendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Ringing", stopRingPending)
             .setAutoCancel(true)
             .build()
 
@@ -458,6 +486,7 @@ class FoodRescueService : Service() {
     override fun onDestroy() {
         FileLogger.log(this, "Service", "Destroying Service")
         isRunning = false
+        RescueRinger.stop(this)
         serviceScope.cancel()
         try {
             mqttClient?.disconnect()
