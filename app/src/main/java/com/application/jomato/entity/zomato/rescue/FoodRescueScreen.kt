@@ -158,10 +158,14 @@ fun FoodRescueContent(sessionId: String) {
                             val ess = withContext(Dispatchers.IO) {
                                 ApiClient.getTabbedHomeEssentials(context, loc.cellId, loc.addressId, session.accessToken)
                             }
-                            screenState = (screenState as? ScreenState.Setup)?.copy(
+                            // Drop the response if the user has since picked another location,
+                            // otherwise its essentials would be paired with the wrong address.
+                            val current = screenState as? ScreenState.Setup ?: return@launch
+                            if (current.selectedLocation?.addressId != loc.addressId) return@launch
+                            screenState = current.copy(
                                 essentials = ess,
                                 isFetchingEssentials = false
-                            ) ?: screenState
+                            )
                         }
                     },
                     onStart = {

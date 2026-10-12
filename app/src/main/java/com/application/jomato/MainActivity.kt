@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -49,8 +50,19 @@ fun JomatoApp() {
     var integrityResult by remember { mutableStateOf<IntegrityResult?>(null) }
     var showIntegrityDialog by remember { mutableStateOf(false) }
 
+    // Survives activity recreation (e.g. rotation) so startup doesn't run again and push a second dashboard.
+    var startupComplete by rememberSaveable { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         Prefs.loadThemeMode(context)
+
+        if (startupComplete) {
+            // Restored after process death: in-memory config is gone, reload it without re-navigating.
+            if (UiConfigManager.config == null) {
+                withContext(Dispatchers.IO) { UiConfigManager.fetch(context) }
+            }
+            return@LaunchedEffect
+        }
 
         withContext(Dispatchers.IO) {
             UiConfigManager.fetch(context)
@@ -87,6 +99,7 @@ fun JomatoApp() {
         navController.navigate("dashboard") {
             popUpTo("splash") { inclusive = true }
         }
+        startupComplete = true
     }
 
     if (showIntegrityDialog && integrityResult is IntegrityResult.Fail) {

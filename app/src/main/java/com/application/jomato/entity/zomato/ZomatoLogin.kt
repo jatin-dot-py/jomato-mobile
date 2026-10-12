@@ -287,9 +287,15 @@ fun ZomatoLoginScreen(navController: NavController) {
                                                 val user = withContext(Dispatchers.IO) { ApiClient.getUserInfo(context, result.accessToken) }
                                                 if (user != null) {
                                                     FileLogger.log(context, "LoginScreen", "Login Complete. Welcome ${user.name}")
+                                                    // Logging into an account that is already connected refreshes its
+                                                    // tokens in place instead of adding a duplicate entry.
+                                                    val existing = ZomatoManager.findSessionByUserId(context, user.id.toString())
+                                                    if (existing != null) {
+                                                        FileLogger.log(context, "LoginScreen", "Account already connected, updating session: ${existing.sessionId}")
+                                                    }
                                                     val session = ZomatoSession(
-                                                        sessionId = java.util.UUID.randomUUID().toString(),
-                                                        createdAt = System.currentTimeMillis(),
+                                                        sessionId = existing?.sessionId ?: java.util.UUID.randomUUID().toString(),
+                                                        createdAt = existing?.createdAt ?: System.currentTimeMillis(),
                                                         accessToken = result.accessToken,
                                                         refreshToken = result.refreshToken,
                                                         userName = user.name,
@@ -297,8 +303,10 @@ fun ZomatoLoginScreen(navController: NavController) {
                                                     )
                                                     ZomatoManager.saveSession(context, session)
                                                     FileLogger.log(context, "LoginScreen", "Session saved: ${session.sessionId}")
+                                                    // Return to the existing dashboard rather than stacking a second one on top.
                                                     navController.navigate("dashboard") {
-                                                        popUpTo(ZomatoLoginHandler.route) { inclusive = true }
+                                                        popUpTo("dashboard") { inclusive = false }
+                                                        launchSingleTop = true
                                                     }
                                                 } else {
                                                     FileLogger.log(context, "LoginScreen", "Profile fetch failed after valid OTP.")

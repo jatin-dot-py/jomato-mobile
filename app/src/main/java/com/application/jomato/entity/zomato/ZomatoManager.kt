@@ -49,6 +49,9 @@ object ZomatoManager : BaseSessionManager<ZomatoSession>() {
         return ZomatoSession(sessionId, createdAt, accessToken, refreshToken, userName, userId)
     }
 
+    fun findSessionByUserId(context: Context, userId: String): ZomatoSession? =
+        listSessions(context).firstOrNull { it.userId == userId }
+
     override fun listSessions(context: Context): List<ZomatoSession> {
         val prefix = Entity.ZOMATO.keyPrefix
         val sessions = prefs(context).all.keys
@@ -83,6 +86,18 @@ object ZomatoManager : BaseSessionManager<ZomatoSession>() {
             FileLogger.log(context, TAG, "FR state saved")
         } catch (e: Exception) {
             FileLogger.log(context, TAG, "Failed to save FR state | ${e.message}", e)
+        }
+    }
+
+    /** Replaces the stored essentials (e.g. refreshed MQTT credentials) without resetting start time or cooldown. */
+    fun updateFoodRescueEssentials(context: Context, essentials: TabbedHomeEssentials) {
+        try {
+            prefs(context).edit()
+                .putString(frKey("fr_essentials"), json.encodeToString(essentials))
+                .apply()
+            FileLogger.log(context, TAG, "FR essentials updated")
+        } catch (e: Exception) {
+            FileLogger.log(context, TAG, "Failed to update FR essentials | ${e.message}", e)
         }
     }
 

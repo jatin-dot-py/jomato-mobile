@@ -11,9 +11,12 @@ import com.application.jomato.R
 import com.application.jomato.entity.zomato.ZomatoManager
 import com.application.jomato.entity.zomato.api.ApiClient
 import com.application.jomato.entity.zomato.api.FoodRescueConf
+import com.application.jomato.entity.zomato.rescue.FoodRescueState
 import com.application.jomato.utils.AnalyticsManager
 import com.application.jomato.utils.FileLogger
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
 import org.eclipse.paho.client.mqttv3.*
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence
@@ -28,6 +31,11 @@ class FoodRescueService : Service() {
     private var mqttClient: MqttClient? = null
     private var isRunning = false
     private var lastConnectedAt: Long = 0L
+    private var consecutiveConnectFailures = 0
+    private var lastCredentialRefreshAt: Long = 0L
+
+    // MQTT messages are handled concurrently; serialize the cooldown read-check-write.
+    private val notificationMutex = Mutex()
 
     private val dedupDirName = "zomato_dedup"
 
@@ -55,7 +63,15 @@ class FoodRescueService : Service() {
         // Lower = more reliable but slightly more battery. Higher = less battery but flakier on long runs.
         // 10 * 60 * 1000 = 10 minutes | 5 * 60 * 1000 = 5 minutes | 15 * 60 * 1000 = 15 minutes
         const val RECONNECT_INTERVAL_MS = 20 * 60 * 1000L
+
+        // After this many failed connects in a row, fetch fresh MQTT credentials.
+        const val MAX_FAILURES_BEFORE_REFRESH = 3
+
+        // Minimum gap between credential refresh attempts, so a failing refresh isn't retried every tick.
+        const val CREDENTIAL_REFRESH_MIN_INTERVAL_MS = 5 * 60 * 1000L
     }
+
+    private enum class ConnectResult { CONNECTED, AUTH_FAILED, FAILED }
 
     override fun onCreate() {
         super.onCreate()
@@ -92,7 +108,7 @@ class FoodRescueService : Service() {
         if (intent?.action == ACTION_TEST) {
             FileLogger.log(this, "Service", "Manual Test Triggered")
             sendAlertNotification()
-            return START_STICKY
+            // Fall through: if the service was restarted by this intent, the loop must start too.
         }
 
         if (!isRunning) {
@@ -131,23 +147,18 @@ class FoodRescueService : Service() {
         }
     }
 
-    private fun isMessageProcessed(msgId: String): Boolean {
+    /**
+     * Atomically records [msgId] as processed.
+     * @return true if this call claimed the ID (first time seen), false if it was already processed.
+     */
+    private fun tryMarkMessageProcessed(msgId: String): Boolean {
         return try {
-            val file = File(File(filesDir, dedupDirName), msgId)
-            file.exists()
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    private fun markMessageProcessed(msgId: String) {
-        try {
-            val file = File(File(filesDir, dedupDirName), msgId)
-            if (!file.exists()) {
-                file.createNewFile()
-            }
+            val dir = File(filesDir, dedupDirName)
+            if (!dir.exists()) dir.mkdirs()
+            File(dir, msgId).createNewFile()
         } catch (e: Exception) {
             FileLogger.log(this, "Dedup", "Failed to create dedup file: ${e.message}")
+            true
         }
     }
 
@@ -157,7 +168,7 @@ class FoodRescueService : Service() {
 
             while (isActive) {
                 try {
-                    val state = ZomatoManager.getFoodRescueState(this@FoodRescueService)
+                    var state = ZomatoManager.getFoodRescueState(this@FoodRescueService)
 
                     if (state == null) {
                         FileLogger.log(this@FoodRescueService, "Service", "Feature Disabled. Shutting down.")
@@ -186,13 +197,38 @@ class FoodRescueService : Service() {
                     val now = System.currentTimeMillis()
                     val shouldForceReconnect = lastConnectedAt > 0L && (now - lastConnectedAt) >= RECONNECT_INTERVAL_MS
 
-                    if (mqttClient == null || !mqttClient!!.isConnected || shouldForceReconnect) {
-                        if (shouldForceReconnect) {
+                    // MQTT credentials can expire. Fetch fresh ones when they are missing or keep
+                    // getting rejected, instead of retrying stale ones forever.
+                    var credentialsRefreshed = false
+                    val needsRefresh = state.essentials.foodRescue == null ||
+                            consecutiveConnectFailures >= MAX_FAILURES_BEFORE_REFRESH
+                    if (needsRefresh && (now - lastCredentialRefreshAt) >= CREDENTIAL_REFRESH_MIN_INTERVAL_MS) {
+                        lastCredentialRefreshAt = now
+                        val refreshed = refreshCredentials(state)
+                        if (refreshed != null) {
+                            state = refreshed
+                            credentialsRefreshed = true
+                            consecutiveConnectFailures = 0
+                        }
+                    }
+
+                    val activeConf = state.essentials.foodRescue
+                    if (activeConf == null) {
+                        FileLogger.log(this@FoodRescueService, "Service", "No food rescue credentials available, will retry")
+                    } else if (mqttClient == null || !mqttClient!!.isConnected || shouldForceReconnect || credentialsRefreshed) {
+                        if (credentialsRefreshed) {
+                            FileLogger.log(this@FoodRescueService, "Service", "Reconnecting with refreshed credentials")
+                        } else if (shouldForceReconnect) {
                             FileLogger.log(this@FoodRescueService, "Service", "Force reconnect triggered (10 min interval)")
                         } else {
                             FileLogger.log(this@FoodRescueService, "Service", "MQTT not connected, attempting connection...")
                         }
-                        connectMqtt(state.essentials.foodRescue!!)
+                        when (connectMqtt(activeConf)) {
+                            ConnectResult.CONNECTED -> consecutiveConnectFailures = 0
+                            // Rejected credentials won't start working on retry; refresh on the next tick.
+                            ConnectResult.AUTH_FAILED -> consecutiveConnectFailures = MAX_FAILURES_BEFORE_REFRESH
+                            ConnectResult.FAILED -> consecutiveConnectFailures++
+                        }
                     }
 
                     updateNotification(buildNotificationText(state.location.name))
@@ -217,7 +253,36 @@ class FoodRescueService : Service() {
         return "$locationName · $connText"
     }
 
-    private suspend fun connectMqtt(config: FoodRescueConf) {
+    private fun refreshCredentials(state: FoodRescueState): FoodRescueState? {
+        FileLogger.log(this, "Service", "Refreshing food rescue credentials...")
+
+        val sessionId = ZomatoManager.getFoodRescueSessionId(this)
+        val session = sessionId?.let { ZomatoManager.getSession(this, it) }
+        if (session == null) {
+            FileLogger.log(this, "Service", "Credential refresh skipped: no session for $sessionId")
+            return null
+        }
+
+        val essentials = ApiClient.getTabbedHomeEssentials(
+            this,
+            state.location.cellId,
+            state.location.addressId,
+            session.accessToken
+        )
+        if (essentials?.foodRescue == null) {
+            FileLogger.log(this, "Service", "Credential refresh failed: no food rescue channel returned")
+            return null
+        }
+
+        // Monitoring may have been stopped while the request was in flight.
+        if (!ZomatoManager.isFoodRescueActive(this)) return null
+
+        ZomatoManager.updateFoodRescueEssentials(this, essentials)
+        FileLogger.log(this, "Service", "Credentials refreshed")
+        return state.copy(essentials = essentials)
+    }
+
+    private suspend fun connectMqtt(config: FoodRescueConf): ConnectResult {
         try {
             if (mqttClient != null) {
                 try {
@@ -264,10 +329,18 @@ class FoodRescueService : Service() {
                 FileLogger.log(this, "MQTT", "Connected. Subscribing...")
                 mqttClient?.subscribe(config.channelName, config.qos)
                 FileLogger.log(this, "MQTT", "Subscribed!")
+                return ConnectResult.CONNECTED
             }
+            return ConnectResult.FAILED
 
+        } catch (e: MqttException) {
+            FileLogger.log(this, "MQTT", "Connection failed (reason ${e.reasonCode}): ${e.message}")
+            val isAuthError = e.reasonCode == MqttException.REASON_CODE_FAILED_AUTHENTICATION.toInt() ||
+                    e.reasonCode == MqttException.REASON_CODE_NOT_AUTHORIZED.toInt()
+            return if (isAuthError) ConnectResult.AUTH_FAILED else ConnectResult.FAILED
         } catch (e: Exception) {
             FileLogger.log(this, "MQTT", "Connection failed: ${e.message}")
+            return ConnectResult.FAILED
         }
     }
 
@@ -299,12 +372,9 @@ class FoodRescueService : Service() {
                 }
             }
 
-            if (msgId != null) {
-                if (isMessageProcessed(msgId)) {
-                    FileLogger.log(this, "Dedup", "Ignored known ID: $msgId")
-                    return
-                }
-                markMessageProcessed(msgId)
+            if (msgId != null && !tryMarkMessageProcessed(msgId)) {
+                FileLogger.log(this, "Dedup", "Ignored known ID: $msgId")
+                return
             }
 
             when (eventType) {
@@ -318,7 +388,7 @@ class FoodRescueService : Service() {
         }
     }
 
-    private fun handleOrderCancelled(msgId: String?) {
+    private suspend fun handleOrderCancelled(msgId: String?) = notificationMutex.withLock {
         FileLogger.log(this, "Logic", ">>> NEW FRESH ORDER CANCELLED ($msgId) <<<")
 
         val lastNotificationTime = ZomatoManager.getLastNotificationTime(this)
