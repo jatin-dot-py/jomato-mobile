@@ -13,9 +13,27 @@ object Prefs {
     private const val KEY_INSTALL_ID = "install_id"
     private const val KEY_HIDE_INTEGRITY = "hide_integrity_dialog"
     private const val KEY_THEME_MODE = "theme_mode"
+    private const val KEY_ALERT_STYLE = "alert_style"
+
+    /** Loud full-screen takeover + looping ring on the alarm stream. */
+    const val ALERT_STYLE_ALARM = "alarm"
+
+    /** Loud notification sound, no screen takeover. */
+    const val ALERT_STYLE_SOUND = "sound"
+
+    /** Vibration only. */
+    const val ALERT_STYLE_SILENT = "silent"
 
     private fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    fun getAlertStyle(context: Context): String =
+        prefs(context).getString(KEY_ALERT_STYLE, ALERT_STYLE_ALARM) ?: ALERT_STYLE_ALARM
+
+    fun setAlertStyle(context: Context, style: String) {
+        prefs(context).edit().putString(KEY_ALERT_STYLE, style).apply()
+        FileLogger.log(context, TAG, "Alert style set to $style")
+    }
 
     fun getInstallId(context: Context): String {
         var installId = prefs(context).getString(KEY_INSTALL_ID, null)

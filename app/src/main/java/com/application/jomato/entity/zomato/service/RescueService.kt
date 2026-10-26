@@ -11,6 +11,7 @@ import com.application.jomato.R
 import com.application.jomato.entity.zomato.ZomatoManager
 import com.application.jomato.entity.zomato.api.ApiClient
 import com.application.jomato.entity.zomato.api.FoodRescueConf
+import com.application.jomato.entity.zomato.rescue.FoodRescueAlerter
 import com.application.jomato.utils.AnalyticsManager
 import com.application.jomato.utils.FileLogger
 import kotlinx.coroutines.*
@@ -29,6 +30,10 @@ class FoodRescueService : Service() {
     private var isRunning = false
     private var lastConnectedAt: Long = 0L
 
+    /** Consecutive MQTT handshake failures; drives credential refresh. */
+    private var consecutiveConnectFailures = 0
+    private var lastCredentialRefreshAt = 0L
+
     private val dedupDirName = "zomato_dedup"
 
     companion object {
@@ -36,10 +41,15 @@ class FoodRescueService : Service() {
         const val ACTION_TEST = "com.application.jomato.TEST_NOTIFICATION"
 
         const val CHANNEL_ID_FOREGROUND = "jomato_service_channel"
-        const val CHANNEL_ID_ALERTS = "jomato_alerts_channel_v2"
         const val NOTIFICATION_ID = 1001
 
         const val TARGET_PACKAGE = "com.application.zomato"
+
+        // After this many failed MQTT handshakes, fetch fresh channel credentials.
+        const val FAILURES_BEFORE_CREDENTIAL_REFRESH = 2
+
+        // Don't hammer the Zomato API if refreshes keep failing.
+        const val CREDENTIAL_REFRESH_COOLDOWN_MS = 5 * 60 * 1000L
 
         // How long to suppress notifications after one fires.
         // Increase if users report too many alerts back-to-back.
@@ -91,8 +101,10 @@ class FoodRescueService : Service() {
 
         if (intent?.action == ACTION_TEST) {
             FileLogger.log(this, "Service", "Manual Test Triggered")
-            sendAlertNotification()
-            return START_STICKY
+            FoodRescueAlerter.post(this)
+            // A test with monitoring switched off must not leave a foreground service running.
+            if (!ZomatoManager.isFoodRescueActive(this)) stopSelf()
+            return START_NOT_STICKY
         }
 
         if (!isRunning) {
@@ -188,11 +200,18 @@ class FoodRescueService : Service() {
 
                     if (mqttClient == null || !mqttClient!!.isConnected || shouldForceReconnect) {
                         if (shouldForceReconnect) {
-                            FileLogger.log(this@FoodRescueService, "Service", "Force reconnect triggered (10 min interval)")
+                            FileLogger.log(this@FoodRescueService, "Service", "Force reconnect triggered (every ${RECONNECT_INTERVAL_MS / 60_000} min)")
                         } else {
                             FileLogger.log(this@FoodRescueService, "Service", "MQTT not connected, attempting connection...")
                         }
-                        connectMqtt(state.essentials.foodRescue!!)
+                        // Zomato-issued channel credentials expire; fall back to a refresh
+                        // instead of crashing on a missing config.
+                        val conf = state.essentials.foodRescue ?: refreshCredentials()
+                        if (conf != null) {
+                            connectMqtt(conf)
+                        } else {
+                            FileLogger.log(this@FoodRescueService, "MQTT", "No food-rescue credentials available; will retry next cycle")
+                        }
                     }
 
                     updateNotification(buildNotificationText(state.location.name))
@@ -261,14 +280,70 @@ class FoodRescueService : Service() {
 
             if (mqttClient?.isConnected == true) {
                 lastConnectedAt = System.currentTimeMillis()
+                consecutiveConnectFailures = 0
                 FileLogger.log(this, "MQTT", "Connected. Subscribing...")
                 mqttClient?.subscribe(config.channelName, config.qos)
                 FileLogger.log(this, "MQTT", "Subscribed!")
             }
 
         } catch (e: Exception) {
-            FileLogger.log(this, "MQTT", "Connection failed: ${e.message}")
+            consecutiveConnectFailures++
+            FileLogger.log(this, "MQTT", "Connection failed (attempt $consecutiveConnectFailures): ${e.message}")
+            if (consecutiveConnectFailures >= FAILURES_BEFORE_CREDENTIAL_REFRESH) {
+                refreshCredentials()
+            }
         }
+    }
+
+    /**
+     * Re-fetches tabbed-home so we get a fresh food_rescue channel name + MQTT
+     * credentials. Zomato rotates these; without this the service silently keeps
+     * retrying with dead credentials and the user stops getting alerts.
+     */
+    private suspend fun refreshCredentials(): FoodRescueConf? {
+        val now = System.currentTimeMillis()
+        if (now - lastCredentialRefreshAt < CREDENTIAL_REFRESH_COOLDOWN_MS) {
+            FileLogger.log(this, "MQTT", "Credential refresh skipped (cooldown)")
+            return null
+        }
+        lastCredentialRefreshAt = now
+
+        val sessionId = ZomatoManager.getFoodRescueSessionId(this) ?: run {
+            FileLogger.log(this, "MQTT", "Credential refresh skipped: no session")
+            return null
+        }
+        val session = ZomatoManager.getSession(this, sessionId) ?: run {
+            FileLogger.log(this, "MQTT", "Credential refresh skipped: session not found")
+            return null
+        }
+        val state = ZomatoManager.getFoodRescueState(this) ?: run {
+            FileLogger.log(this, "MQTT", "Credential refresh skipped: no rescue state")
+            return null
+        }
+
+        FileLogger.log(this, "MQTT", "Refreshing food-rescue credentials...")
+        val essentials = try {
+            ApiClient.getTabbedHomeEssentials(
+                this,
+                state.location.cellId,
+                state.location.addressId,
+                session.accessToken
+            )
+        } catch (e: Exception) {
+            FileLogger.log(this, "MQTT", "Credential refresh failed: ${e.message}", e)
+            null
+        } ?: return null
+
+        val conf = essentials.foodRescue
+        if (conf == null) {
+            FileLogger.log(this, "MQTT", "Credential refresh returned no food_rescue channel")
+            return null
+        }
+
+        ZomatoManager.updateFoodRescueEssentials(this, essentials)
+        consecutiveConnectFailures = 0
+        FileLogger.log(this, "MQTT", "Credentials refreshed | channel=${conf.channelName}")
+        return conf
     }
 
     private suspend fun handleMqttMessage(message: MqttMessage?) {
@@ -327,7 +402,7 @@ class FoodRescueService : Service() {
 
         if (timeSinceLast >= NOTIFICATION_COOLDOWN_MS) {
             FileLogger.log(this, "Logic", "Cooldown expired ($timeSinceLast > $NOTIFICATION_COOLDOWN_MS). Sending Notification.")
-            sendAlertNotification()
+            FoodRescueAlerter.post(this)
             ZomatoManager.saveLastNotification(this, now)
         } else {
             val remaining = (NOTIFICATION_COOLDOWN_MS - timeSinceLast) / 1000
@@ -375,53 +450,6 @@ class FoodRescueService : Service() {
             FileLogger.log(this, "Logic", "Order $identifier not owned by our user")
             ZomatoManager.saveOrderClaimedState(this, identifier, null)
         }
-    }
-
-    private fun sendAlertNotification() {
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val alertChannel = NotificationChannel(
-                CHANNEL_ID_ALERTS,
-                "Food Rescue Alerts",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                enableVibration(true)
-                enableLights(true)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                description = "Notifications for fresh food rescue opportunities"
-            }
-            notificationManager.createNotificationChannel(alertChannel)
-        }
-
-        var launchIntent = packageManager.getLaunchIntentForPackage("com.application.zomato")
-
-        if (launchIntent == null) {
-            launchIntent = Intent(this, MainActivity::class.java)
-        }
-
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            launchIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID_ALERTS)
-            .setSmallIcon(R.drawable.ic_notification_jomato)
-            .setContentTitle("Food Rescue Alert!")
-            .setContentText("Click to open Zomato")
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
-            .setFullScreenIntent(pendingIntent, true)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
-            .build()
-
-        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 
     private fun updateNotification(text: String) {

@@ -1,16 +1,16 @@
 package com.application.jomato.entity.zomato.rescue
 
-import android.content.Intent
-import android.os.Build
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.*
@@ -31,9 +31,10 @@ import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.application.jomato.BuildConfig
+import com.application.jomato.Prefs
 import com.application.jomato.entity.zomato.ZomatoManager
 import com.application.jomato.entity.zomato.api.OrderDetails
-import com.application.jomato.entity.zomato.service.FoodRescueService
+import com.application.jomato.ui.AlertStyleDialog
 import com.application.jomato.ui.theme.JomatoTheme
 import java.text.NumberFormat
 import java.util.Locale
@@ -54,6 +55,7 @@ fun RescueActiveView(
     val claimedOrders = remember { ZomatoManager.getFrClaimedOrders(context) }
     val totalSaved = remember { ZomatoManager.getFrTotalSaved(context) }
     val hasClaims = claimedOrders.isNotEmpty()
+    var showAlertDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -67,6 +69,10 @@ fun RescueActiveView(
             )
             Spacer(modifier = Modifier.height(20.dp))
         }
+
+        AlertStyleRow(onClick = { showAlertDialog = true })
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         Column(
             modifier = Modifier
@@ -87,6 +93,10 @@ fun RescueActiveView(
                 )
             }
         }
+    }
+
+    if (showAlertDialog) {
+        AlertStyleDialog(onDismiss = { showAlertDialog = false })
     }
 }
 
@@ -436,16 +446,7 @@ private fun EmptyClaimsView(locationName: String, onStop: () -> Unit) {
         Spacer(modifier = Modifier.height(10.dp))
 
         OutlinedButton(
-            onClick = {
-                val testIntent = Intent(context, FoodRescueService::class.java).apply {
-                    action = FoodRescueService.ACTION_TEST
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(testIntent)
-                } else {
-                    context.startService(testIntent)
-                }
-            },
+            onClick = { FoodRescueAlerter.test(context) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
@@ -465,5 +466,74 @@ private fun EmptyClaimsView(locationName: String, onStop: () -> Unit) {
                 letterSpacing = 0.5.sp
             )
         }
+    }
+}
+
+// ── Alert style row ───────────────────────────────────────────────────────────
+
+@Composable
+private fun AlertStyleRow(onClick: () -> Unit) {
+    val context = LocalContext.current
+    val style = Prefs.getAlertStyle(context)
+
+    val title: String
+    val subtitle: String
+    when (style) {
+        Prefs.ALERT_STYLE_SOUND -> {
+            title = "Sound only"
+            subtitle = "Loud notification, no screen takeover"
+        }
+        Prefs.ALERT_STYLE_SILENT -> {
+            title = "Vibrate only"
+            subtitle = "Silent alert"
+        }
+        else -> {
+            title = "Ring + full screen"
+            subtitle = "Wakes the screen and rings until you act"
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(JomatoTheme.SecondaryBg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.NotificationsActive,
+            contentDescription = null,
+            tint = JomatoTheme.Brand,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "ALERT STYLE",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp,
+                color = JomatoTheme.TextGray.copy(alpha = 0.6f)
+            )
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = JomatoTheme.BrandBlack
+            )
+            Text(
+                text = subtitle,
+                fontSize = 11.sp,
+                color = JomatoTheme.TextGray
+            )
+        }
+        Icon(
+            imageVector = Icons.Rounded.ChevronRight,
+            contentDescription = null,
+            tint = JomatoTheme.TextGray,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
