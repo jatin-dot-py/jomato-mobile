@@ -1,5 +1,6 @@
 package com.application.jomato.entity.zomato.rescue
 
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -13,6 +14,38 @@ import com.application.jomato.entity.zomato.service.FoodRescueService
 import com.application.jomato.utils.FileLogger
 
 object RescuePermissionUtils {
+
+    /**
+     * Android 14+ lets the user revoke the "full-screen notifications" grant. Without it the
+     * alert still posts and rings, but cannot take over the screen.
+     */
+    fun canUseFullScreenIntent(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        return nm.canUseFullScreenIntent()
+    }
+
+    fun openFullScreenIntentSettings(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        try {
+            context.startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                    Uri.parse("package:${context.packageName}")
+                )
+            )
+        } catch (e: Exception) {
+            FileLogger.log(context, "RescuePermissionUtils", "Full-screen intent settings unavailable", e)
+            try {
+                context.startActivity(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                )
+            } catch (fallback: Exception) {
+                FileLogger.log(context, "RescuePermissionUtils", "Notification settings unavailable", fallback)
+            }
+        }
+    }
 
     fun checkBattery(context: Context, onShowDialog: () -> Unit, onSuccess: () -> Unit) {
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager

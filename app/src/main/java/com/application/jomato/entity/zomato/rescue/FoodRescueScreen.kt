@@ -56,6 +56,7 @@ fun FoodRescueContent(sessionId: String) {
     val scope = rememberCoroutineScope()
 
     var screenState by remember { mutableStateOf<ScreenState>(ScreenState.Loading) }
+    var showHistory by remember { mutableStateOf(false) }
 
     fun loadActiveOrLocations(accessToken: String) {
         val activeState = ZomatoManager.getFoodRescueState(context)
@@ -131,6 +132,11 @@ fun FoodRescueContent(sessionId: String) {
         }
     }
 
+    if (showHistory) {
+        RescueHistoryScreen(onBack = { showHistory = false })
+        return
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             when (val state = screenState) {
@@ -138,6 +144,7 @@ fun FoodRescueContent(sessionId: String) {
                 is ScreenState.Error -> ErrorView(state.message)
                 is ScreenState.Active -> ActiveView(
                     state = state.state,
+                    onOpenHistory = { showHistory = true },
                     onStop = {
                         RescuePermissionUtils.deactivateRescue(context)
                         screenState = ScreenState.Loading
@@ -147,6 +154,7 @@ fun FoodRescueContent(sessionId: String) {
                 )
                 is ScreenState.Setup -> SetupView(
                     state = state,
+                    onOpenHistory = { showHistory = true },
                     onLocationSelected = { loc ->
                         val session = ZomatoManager.getSession(context, sessionId) ?: return@SetupView
                         screenState = state.copy(
@@ -206,9 +214,14 @@ private fun ErrorView(message: String) {
 @Composable
 private fun ActiveView(
     state: FoodRescueState,
-    onStop: () -> Unit
+    onStop: () -> Unit,
+    onOpenHistory: () -> Unit
 ) {
-    RescueActiveView(state = state, onStopClick = onStop)
+    RescueActiveView(
+        state = state,
+        onStopClick = onStop,
+        onOpenHistory = onOpenHistory
+    )
 }
 
 // ── Location selection + start ───────────────────────────────────────────────
@@ -217,7 +230,8 @@ private fun ActiveView(
 private fun SetupView(
     state: ScreenState.Setup,
     onLocationSelected: (UserLocation) -> Unit,
-    onStart: () -> Unit
+    onStart: () -> Unit,
+    onOpenHistory: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -311,6 +325,19 @@ private fun SetupView(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.5.sp
+            )
+        }
+
+        TextButton(
+            onClick = onOpenHistory,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(bottom = 8.dp)
+        ) {
+            Text(
+                text = "View rescue history",
+                fontSize = 12.sp,
+                color = JomatoTheme.TextGray
             )
         }
     }

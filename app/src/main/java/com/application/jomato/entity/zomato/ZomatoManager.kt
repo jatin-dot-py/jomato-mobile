@@ -86,6 +86,21 @@ object ZomatoManager : BaseSessionManager<ZomatoSession>() {
         }
     }
 
+    /**
+     * Replaces the cached tabbed-home essentials (fresh MQTT channel + credentials)
+     * without resetting the start time or the notification cooldown.
+     */
+    fun updateFoodRescueEssentials(context: Context, essentials: TabbedHomeEssentials) {
+        try {
+            prefs(context).edit()
+                .putString(frKey("fr_essentials"), json.encodeToString(essentials))
+                .apply()
+            FileLogger.log(context, TAG, "FR essentials refreshed | channel=${essentials.foodRescue?.channelName}")
+        } catch (e: Exception) {
+            FileLogger.log(context, TAG, "Failed to refresh FR essentials | ${e.message}", e)
+        }
+    }
+
     fun getFoodRescueState(context: Context): FoodRescueState? {
         val p = prefs(context)
         val essJson = p.getString(frKey("fr_essentials"), null) ?: return null

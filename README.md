@@ -23,6 +23,8 @@ Jomato is an unofficial, reverse-engineered client for Zomato. It delivers utili
 ## Features
 
 - **Instant Food Rescue Notifications**: Monitors Food Rescue events in real time within your area. Delivers immediate alerts upon listing of a rescue basket by a restaurant. Allows direct access to the deal via notification tap, ensuring timely acquisition before depletion.
+- **Alert styles that actually grab attention**: a notification alone is easy to miss, so alerts can ring like an alarm (looping ringtone on the alarm stream, audible even on silent and through Do Not Disturb) with a full-screen takeover that wakes the lock screen. Prefers something calmer? Pick "Sound only" or "Vibrate only" from the rescue screen, and use **Save & test** to preview it.
+- **Rescue history**: every deal is logged on-device — what it was, what it cost, and whether you claimed it, opened it and passed, or never opened it. A running summary shows what you saved and, as far as Zomato tells us, what you missed. History stays on your phone; nothing is uploaded.
 
 ---
 
